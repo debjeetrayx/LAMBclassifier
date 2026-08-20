@@ -1,0 +1,44 @@
+Package: LAMBclassifier
+Title: Luminal-Apocrine-Metaplastic-Basal Breast Cancer Classifier
+Version: 1.0.0
+Depends: R (>= 4.1),
+         grDevices,
+         graphics,
+         stats
+Imports: 
+    ggplot2,
+    pheatmap,
+    genefu (>= 2.34.0),
+    singscore (>= 1.12.0),
+    dplyr,
+    tibble,
+    gridExtra,
+    digest
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Authors@R:
+    person(given = "Debjeet",
+           family = "Ray",
+           email = "debjeet.ray@etu.u-bordeaux.fr",
+           role = c("aut", "cre"))
+Description: Luminal-Apocrine-Metaplastic-Basal (LAMB) classifier for bulk
+    breast cancer expression data. Assigns research samples to six
+    expression-defined classes reflecting a proposed mammary differentiation
+    hierarchy: LHS, Apocrine, MA-Lo (HER2), Basal-like, Chondroid, and
+    Squamous. External evaluation covers bulk cohorts only; single-cell and
+    spatial pseudobulk are supported mechanically but not externally
+    validated. Classification uses a deterministic
+    decision tree powered by singscore rank enrichment. The package is for
+    research use and its labels are not clinical diagnoses.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+LazyData: true
+LazyDataCompression: xz
+URL: https://github.com/debjeetrayx/LAMBclassifier
+BugReports: https://github.com/debjeetrayx/LAMBclassifier/issues
+VignetteBuilder: knitr
+Config/testthat/edition: 3

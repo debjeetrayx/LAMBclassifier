@@ -1,0 +1,8 @@
+Key	Value
+classifier_version	1.0.0
+signature_sha256	8626709901e967f04edfaaa6034e8d67c088da4ab6aa8e4e30e5a0d548989ffa
+universe_sha256	81454b9a99665ed0ff17892eb66db028d67123d7b1aeb5779e39752694c3c7c0
+universe_size	13468
+min_margin	0.02
+min_gene_coverage	0.6
+exported_utc	2026-08-27 08:36:33 UTC

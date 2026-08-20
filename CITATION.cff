@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "LAMBclassifier: Luminal-Apocrine-Metaplastic-Basal Breast Cancer Classifier"
+abstract: >-
+  Assigns breast cancer expression profiles to six classes defined by position on
+  the normal mammary differentiation hierarchy, using single-sample singscore rank
+  enrichment over a fixed 13,468-gene universe. Works on bulk RNA-seq, single-cell
+  cluster pseudobulk and spatial transcriptomics under one specification.
+authors:
+  - family-names: Ray
+    given-names: Debjeet
+version: 1.0.0
+license: GPL-3.0-or-later
+repository-code: "https://github.com/debjeetrayx/LAMBclassifier"
+keywords:
+  - breast-cancer
+  - transcriptomics
+  - classification
+  - spatial-transcriptomics
+  - single-cell

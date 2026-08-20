@@ -1,0 +1,248 @@
+---
+title: "Using and validating LAMBclassifier"
+author: "Debjeet Ray"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using and validating LAMBclassifier}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+# Chunks that need no external data are individually marked eval = TRUE.
+```
+
+## Scope
+
+LAMBclassifier assigns bulk expression profiles to six expression-defined
+classes using a locked, deterministic, single-sample rank-scoring rule. It is a
+research tool. A call is not a pathology diagnosis, a receptor assay, or a
+substitute for PAM50.
+
+The training set is an in-house PDX cohort. It is the sole training set, and it
+cannot be published yet. TCGA was not training data; it contributed only to gene
+availability in the fixed scoring universe, so TCGA results are characterization
+rather than fully independent validation of the complete pipeline.
+
+## Classification
+
+The input is a numeric matrix with HGNC gene symbols in rows and samples in
+columns. Use comparable sample-level normalization and a log2-like expression
+scale; do not normalize a new validation cohort together with any development
+cohort.
+
+```{r classify}
+library(LAMBclassifier)
+
+expr <- read.delim(
+  "expression_matrix.txt", row.names = 1, check.names = FALSE
+)
+expr <- prepare_lamb_data(expr, log2_transform = FALSE)
+
+# Set run_pam50 = FALSE when PAM50 is unavailable or not part of the protocol.
+results <- LAMBclassifier(expr, run_pam50 = TRUE)
+summary_lamb_results(results)
+
+lamb_specification()
+export_results(results, "results/classification_results.csv")
+```
+
+`export_results()` writes the result CSV plus provenance and ordered-signature
+TSVs. The main output includes `Pred_Class`, `Margin`, `Flag`, all fixed
+signature scores and coverages, and specification hashes. `close_call`,
+`low_coverage`, and `NC` are retained in primary analyses.
+
+Custom signatures create a different classifier and require a new development
+and validation cycle. They can be supplied explicitly, for example:
+
+```{r custom}
+custom_results <- LAMBclassifier(
+  expr,
+  chondroid_genes = c("SP7", "ACAN", "COL2A1"),
+  squamous_genes = c("TP63", "KRT5", "KRT14"),
+  basal_like_genes = c("FOXC1", "SOX10", "ELF5"),
+  lhs_genes = c("ESR1", "GATA3", "PGR"),
+  apocrine_genes = c("AR", "FOXA1", "FKBP5"),
+  malo_her2_genes = c("ERBB2", "GRB7", "STARD3")
+)
+```
+
+## A runnable example
+
+The chunks below that read files are not evaluated, because no expression matrix
+ships with the package. This one is, so you can see the shape of a result
+without any data of your own.
+
+```{r demo, eval = TRUE}
+library(LAMBclassifier)
+
+# A toy bulk-like matrix: 3,000 genes drawn from the reference universe.
+set.seed(1)
+genes <- unique(c(DEFAULT_ALL_INPUT_GENES, sample(lamb_universe(), 3000)))
+expr <- matrix(
+  stats::runif(length(genes) * 3),
+  nrow = length(genes),
+  dimnames = list(genes, c("tumour_A", "tumour_B", "tumour_C"))
+)
+
+# Push one sample towards the basal-like signature.
+expr[DEFAULT_BASAL_LIKE_GENES, "tumour_B"] <- 5
+
+res <- LAMBclassifier(expr, run_pam50 = FALSE)
+res[, c("Sample", "Pred_Class", "Margin", "Flag", "Unscored_Signatures")]
+```
+
+Every row also carries the specification version and both hashes, so a result
+can always be traced to the classifier that produced it:
+
+```{r demo-provenance, eval = TRUE}
+res[1, c("Classifier_Version", "Signature_SHA256", "Universe_SHA256")]
+```
+
+Signature coverage is reported per signature, which is what makes targeted
+panels safe to use:
+
+```{r demo-coverage, eval = TRUE}
+scores <- lamb_score(expr)
+attr(scores, "coverage")
+```
+
+## Single-cell and spatial data
+
+There is no separate single-cell version. Because `singscore` ranks genes within
+one sample, a cluster pseudobulk scores on exactly the same scale as a bulk
+tumour — so the workflow is: aggregate to pseudobulk, then classify.
+
+```{r singlecell}
+# Seurat: sum raw counts per cluster, then CPM-normalise and log2.
+counts <- Seurat::GetAssayData(seurat_obj, layer = "counts")
+clusters <- seurat_obj$seurat_clusters
+
+pseudobulk <- vapply(
+  levels(clusters),
+  function(cl) Matrix::rowSums(counts[, clusters == cl, drop = FALSE]),
+  numeric(nrow(counts))
+)
+
+cpm <- t(t(pseudobulk) / colSums(pseudobulk)) * 1e6
+log_cpm <- log2(cpm + 1)
+
+cluster_calls <- LAMBclassifier(log_cpm, run_pam50 = FALSE)
+```
+
+Classify each cluster, then weight by cell count to describe a whole sample as a
+composition rather than forcing it into one label. Averaging a heterogeneous
+slide into a single pseudobulk produces a profile that belongs to no real cell
+population, so per-cluster calls are the meaningful unit.
+
+```{r composition}
+cells_per_cluster <- table(clusters)
+composition <- data.frame(
+  Class = cluster_calls$Pred_Class,
+  Cells = as.integer(cells_per_cluster[cluster_calls$Sample])
+)
+aggregate(Cells ~ Class, composition, sum)
+```
+
+Single-cell and spatial calls are **not externally validated**. No such cohort
+with independent class labels has been evaluated, so treat these calls as
+exploratory.
+
+A panel must carry enough genes to evaluate every gate. Coverage is tracked per
+signature; a signature with fewer than `min_genes_per_sig` present genes is left
+unscored, and any sample whose decision path needed it returns `NC` with the
+`incomplete_gates` flag. Scoring is refused outright below 100
+reference-universe genes. Check `Flag`, `Unscored_Signatures` and the coverage
+attribute before interpreting.
+
+## Plots
+
+All plotting functions take the result of `LAMBclassifier()` and write files to
+`output_prefix`.
+
+```{r plots}
+# Signature heatmap, samples annotated by class
+plot_comprehensive_heatmap(
+  expr_mat = expr, results = res, output_prefix = "figures/heatmap"
+)
+
+# Class counts arranged on the mammary differentiation hierarchy
+plot_lineage_tree(res, output_prefix = "figures/lineage_tree")
+
+# Pairwise score spaces with the y = x decision boundary drawn in
+plot_decision_boundaries(res, output_prefix = "figures/boundaries")
+
+# Two genes against each other, coloured by call
+plot_expression_scatter(expr, res, "GATA3", "AR", output_prefix = "figures/gata3_ar")
+
+# Cross-classification against any reference column present in `res`
+plot_confusion_matrix(res, truth_col = "PAM50", output_prefix = "figures/confusion")
+
+# Convenience wrapper: the standard heatmap set in one call
+generate_standard_heatmaps(
+  expr_mat = expr, results = res, output_prefix = "figures/standard"
+)
+```
+
+## PAM50 comparison
+
+PAM50 and LAMB describe different taxonomies. Report their full
+cross-classification and association rather than calling PAM50 ground truth for
+six-class accuracy.
+
+```{r pam50}
+tab_counts <- lamb_cross_tab(results$Pred_Class, results$PAM50)
+tab_by_lamb <- lamb_cross_tab(
+  results$Pred_Class, results$PAM50, normalize = "prediction"
+)
+association <- lamb_cramers_v(results$Pred_Class, results$PAM50)
+
+lamb_binary_metrics(
+  predicted = results$Pred_Class,
+  reference = results$PAM50,
+  positive_predicted = "LHS",
+  positive_reference = c("LumA", "LumB")
+)
+```
+
+## Clinical concordance
+
+Join annotations by stable sample identifier and evaluate each endpoint only
+where that reference is known. Declare the positive prediction and clinical
+state explicitly.
+
+```{r clinical}
+clinical <- read.csv("clinical_annotations.csv", stringsAsFactors = FALSE)
+dat <- merge(results, clinical, by = "Sample", all.x = TRUE)
+
+er_concordance <- lamb_binary_metrics(
+  dat$Pred_Class, dat$ER_status,
+  positive_predicted = "LHS", positive_reference = "Positive"
+)
+her2_concordance <- lamb_binary_metrics(
+  dat$Pred_Class, dat$HER2_status,
+  positive_predicted = "MA-Lo (HER2)", positive_reference = "Positive"
+)
+tn_concordance <- lamb_binary_metrics(
+  dat$Pred_Class, dat$Triple_negative,
+  positive_predicted = "Basal-like", positive_reference = TRUE
+)
+```
+
+These mappings assess concordance. MA-Lo is ERBB2-amplicon expression, not a
+DNA-amplification or clinical HER2 test. Chondroid/Squamous require pathology
+labels for histologic validation, and Apocrine requires independent ER and AR
+evidence for the corresponding biological claim.
+
+## Independent-validation safeguards
+
+Freeze the classifier, preprocessing, eligibility criteria, endpoints, class
+mappings, and analysis code before accessing outcomes. Keep cohorts separate,
+check patient overlap, use biological patients/models as independent units,
+reserve technical replicates for repeatability, and report all evaluable calls
+and 2x2 cells with confidence intervals. Never tune the classifier on a cohort
+then continue to call that same cohort independent validation.
+
+See `system.file("METHODS.md", package = "LAMBclassifier")` for the full policy.

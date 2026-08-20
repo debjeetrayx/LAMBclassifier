@@ -1,0 +1,31 @@
+Cohort	LAMB	PAM50	Count
+GSE96058	Apocrine	Basal	2
+GSE96058	Basal-like	Basal	258
+GSE96058	Chondroid	Basal	4
+GSE96058	LHS	Basal	20
+GSE96058	MA-Lo (HER2)	Basal	7
+GSE96058	Squamous	Basal	17
+GSE96058	Apocrine	Her2	31
+GSE96058	Basal-like	Her2	1
+GSE96058	Chondroid	Her2	0
+GSE96058	LHS	Her2	92
+GSE96058	MA-Lo (HER2)	Her2	171
+GSE96058	Squamous	Her2	0
+GSE96058	Apocrine	LumA	6
+GSE96058	Basal-like	LumA	0
+GSE96058	Chondroid	LumA	0
+GSE96058	LHS	LumA	1485
+GSE96058	MA-Lo (HER2)	LumA	10
+GSE96058	Squamous	LumA	0
+GSE96058	Apocrine	LumB	0
+GSE96058	Basal-like	LumB	0
+GSE96058	Chondroid	LumB	0
+GSE96058	LHS	LumB	660
+GSE96058	MA-Lo (HER2)	LumB	5
+GSE96058	Squamous	LumB	1
+GSE96058	Apocrine	Normal	14
+GSE96058	Basal-like	Normal	9
+GSE96058	Chondroid	Normal	0
+GSE96058	LHS	Normal	160
+GSE96058	MA-Lo (HER2)	Normal	14
+GSE96058	Squamous	Normal	2

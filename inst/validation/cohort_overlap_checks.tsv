@@ -1,0 +1,3 @@
+Cohort_A	Cohort_B	Check	Shared	Consequence
+GSE20194	GSE25066	near-identical expression screen (max Pearson r > 0.99; 300 genes)	187	do not pool as independent observations
+GSE20271	GSE25066	normalized title/patient identifiers	47	do not pool as independent observations

@@ -1,0 +1,62 @@
+# Asserts that the signature and universe hashes the package computes match the
+# ones documented in inst/METHODS.md, so published metrics always describe the
+# classifier that is shipped. Editing the gene lists or the universe requires
+# bumping the specification version, updating METHODS.md and re-running
+# validation.
+name: specification-lock
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-hashes:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            bioc::singscore
+            bioc::genefu
+          needs: check
+
+      - name: Specification hashes must match the shipped documentation
+        run: |
+          Rscript -e '
+            pkgload::load_all(".", quiet = TRUE)
+            spec <- lamb_specification()
+            methods <- paste(readLines("inst/METHODS.md", warn = FALSE), collapse = "\n")
+
+            cat("specification version :", spec$version, "\n")
+            cat("signature  SHA-256    :", spec$signature_sha256, "\n")
+            cat("universe   SHA-256    :", spec$universe_sha256, "\n")
+            cat("universe   size       :", spec$universe_size, "\n\n")
+
+            ok <- TRUE
+            if (!grepl(spec$signature_sha256, methods, fixed = TRUE)) {
+              cat("FAIL: signature hash is not documented in inst/METHODS.md\n")
+              cat("      The gene lists changed. Bump LAMB_CALIBRATION$version,\n")
+              cat("      re-run the external validation, and update METHODS.md.\n")
+              ok <- FALSE
+            }
+            if (!grepl(spec$universe_sha256, methods, fixed = TRUE)) {
+              cat("FAIL: universe hash is not documented in inst/METHODS.md\n")
+              ok <- FALSE
+            }
+            desc_version <- as.character(read.dcf("DESCRIPTION")[, "Version"])
+            cat("package version       :", desc_version, "\n")
+            if (!ok) quit(status = 1)
+            cat("\nSpecification lock OK.\n")
+          '
