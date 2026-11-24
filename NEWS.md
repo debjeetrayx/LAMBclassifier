@@ -1,3 +1,46 @@
+# LAMBclassifier 1.0.1
+
+Classes, scores and the classifier specification (2.0.0) are unchanged. Every
+reader was run end to end on real public data.
+
+## Inputs
+
+- **Seurat v5:** a merged object with split count layers is read in full (layers
+  joined); before, only the first layer was classified. An SCT or integrated
+  default assay is passed over for RNA (or Spatial); log-normalised values in
+  the counts slot are refused; the default `orig.ident` identities are no
+  longer taken as clusters.
+- **AnnData (`.h5ad`):** gene symbols are found when `raw/var` holds only IDs;
+  nullable integer and boolean columns are read; repeated cell names keep their
+  own clusters.
+- **SingleCellExperiment:** cluster columns are found in `colData`; Ensembl row
+  names are mapped through `rowData` symbols.
+- **Visium:** the folder exactly as downloaded (prefixed `.h5` beside
+  `spatial/`) is recognised, and pointing at the matrix itself keeps the spot
+  positions. **Visium HD:** the finest available bin other than 2 um is used and
+  named. **CosMx and MERSCOPE:** prefixed file names are recognised, files are
+  paired by run, and a folder holding several runs asks for one.
+- Spots and bins are called spots and bins in the log; `Epithelial_share` is
+  left empty when the panel has no epithelial marker.
+- Installing needs no separate Bioconductor step (`biocViews` in DESCRIPTION);
+  a missing optional package is named with its install command.
+
+## Reports
+
+- The dot legend reads "wins the step / does not win; further right = higher
+  score". "How sure" is now "How clear-cut", and its line states the 0.02
+  margin rule without implying a probability.
+- Marker strip: "percentile among the genes measured in this sample";
+  values below 1 print as "<1".
+- Decision steps name the strongest program generically ("Strongest
+  luminal"), never a class that contradicts the page. Pages without a class
+  say "Why no class" and name the unscored signature once.
+
+## Documentation
+
+- The README lists every `lamb_run()` argument; its plotting example runs as
+  written; `?lamb_run` has a runnable example.
+
 # LAMBclassifier 1.0.0
 
 First public release. Classifier specification 2.0.0.

@@ -153,7 +153,14 @@ run log, for whoever checks or reproduces the run.}
 }
 }
 \examples{
+# The bundled public example; results go to a temporary folder.
+res <- lamb_run(system.file("extdata", "example_bulk.csv", package = "LAMBclassifier"),
+                out_dir = tempfile("lamb_"))
+res$calls
+list.files(res$out_dir)
+
 \dontrun{
+# Your own data: results go to LAMB_results_<name> next to the input.
 lamb_run("expression_counts.csv")
 lamb_run("xenium_output_folder")
 lamb_run("xenium_output_folder", he_image = "HE.ome.tif",

@@ -205,5 +205,32 @@ test_that("MA-Lo lean is balanced when LHS and Apocrine differ by less than 0.02
     r <- data.frame(Pred_Class = "MA-Lo", Score_LHS = c(0.1123, 0.1123, 0.1377),
                     Score_Apocrine = c(0.1144, 0.1100, 0.0919))
     expect_identical(.lamb_malo_lean(r), c("balanced", "balanced", "LHS-leaning"))
-    expect_match(.lamb_s2_mini_text(cbind(r[1, ], HER2_Amplicon = "high")), "^balanced between LHS and Apocrine; HER2 amplicon high$")
+    # the lean is the step-3 answer in a cluster panel, so the extra line carries HER2 only
+    expect_identical(.lamb_s2_mini_text(cbind(r[1, ], HER2_Amplicon = "high")), "HER2 amplicon high")
+})
+
+test_that("step rows name the compared group, never a class that contradicts the call", {
+    malo <- list(Sample = "s", Pred_Class = "MA-Lo", Margin = 0.2, Score_Chondroid = -0.1,
+                 Score_Squamous = -0.1, Score_Basal_Like = 0, Score_LHS = 0.05, Score_Apocrine = 0.1,
+                 Score_MALO = 0.3)
+    m <- .lamb_rpt_steps(malo)
+    expect_equal(vapply(m$steps[[1]]$rows, `[[`, "", "text"), c("Strongest metaplastic", "Strongest mammary"))
+    expect_equal(vapply(m$steps[[2]]$rows, `[[`, "", "text"), c("Basal-like", "Strongest luminal"))
+})
+
+test_that("close-call wording names the pair without implying a probability", {
+    r <- list(Sample = "s", Pred_Class = "MA-Lo", Margin = 0.01, Score_Chondroid = -0.1,
+              Score_Squamous = -0.1, Score_Basal_Like = 0, Score_LHS = 0.2, Score_Apocrine = 0.1,
+              Score_MALO = 0.21)
+    expect_identical(.lamb_close_beat(r), "MA-Lo beat LHS")
+    expect_identical(.lamb_close_beat(list(Pred_Class = "NC")), "The winning score beat the runner-up")
+    expect_identical(.LAMB_LEGEND, c("wins the step", "does not win", "Further right = higher score."))
+})
+
+test_that("marker ranks say what they are and print below 1 as <1", {
+    expect_identical(.lamb_gp_num(c(0, 0.4, 0.6, 47.5, 100)), c("<1", "<1", "1", "48", "100"))
+    expect_identical(.lamb_gp_subtitle(10104),
+                     "Percentile among the 10,104 genes measured in this sample (100 = highest). RNA, not IHC.")
+    expect_identical(.lamb_gp_subtitle(NA),
+                     "Percentile among the genes measured in this sample (100 = highest). RNA, not IHC.")
 })

@@ -2,7 +2,7 @@
 
 .LAMB_GP_MARKERS <- c("ESR1", "PGR", "AR", "ERBB2", "FOXA1", "GATA3", "KRT5", "TP63", "MKI67")
 
-.LAMB_GP_SUBTITLE <- "Rank within this sample (100 = highest of %s genes measured). RNA, not IHC."
+.LAMB_GP_SUBTITLE <- "Percentile among the%s genes measured in this sample (100 = highest). RNA, not IHC."
 
 # Percentile among the sample's measured universe genes, 100 = highest, ties
 # averaged (the HER2 amplicon ranking, read from the top). Genes outside the
@@ -29,7 +29,7 @@
 }
 
 .lamb_gp_subtitle <- function(n) {
-    sprintf(.LAMB_GP_SUBTITLE, if (is.na(n)) "the" else format(n, big.mark = ","))
+    sprintf(.LAMB_GP_SUBTITLE, if (is.na(n)) "" else paste0(" ", format(n, big.mark = ",")))
 }
 
 # One sample's percentiles (named, NA = not measured) and N, or NULL.
@@ -40,6 +40,9 @@
     list(pct = pct[sample, ], n = if (is.null(n)) NA_integer_ else unname(n[sample]))
 }
 
+# "<1" rather than 0: the gene is measured, just ranked among the lowest.
+.lamb_gp_num <- function(value) ifelse(round(value) < 1, "<1", as.character(round(value)))
+
 # Gene, bar 0-100, value. Returns the y below the row.
 .lamb_gp_bar <- function(gene, value, x0, x1, y, lab_w, cex = 0.8, font = 1, col = .LAMB_INK, lwd = 4) {
     num_w <- graphics::strwidth("100", units = "user", cex = cex) + 0.08
@@ -47,7 +50,7 @@
     graphics::text(x0, y, gene, adj = c(0, 0.5), cex = cex, font = font, col = col)
     graphics::segments(bx0, y, bx1, y, col = "#e8e8e8", lwd = lwd, lend = 1)
     graphics::segments(bx0, y, bx0 + (bx1 - bx0) * value / 100, y, col = "#7d7d7d", lwd = lwd, lend = 1)
-    graphics::text(x1, y, round(value), adj = c(1, 0.5), cex = cex, col = col)
+    graphics::text(x1, y, .lamb_gp_num(value), adj = c(1, 0.5), cex = cex, col = col)
 }
 
 # Marker strip for the bulk page; measured markers only, nothing when none.
@@ -57,13 +60,20 @@
     v <- g$pct[intersect(.LAMB_GP_MARKERS, names(g$pct))]
     v <- v[!is.na(v)]
     if (!length(v)) return(ytop)
-    rh <- min(0.2, (ytop - 0.42 - 0.85) / max(length(v) - 1, 1))   # stay clear of the footer
+    sub <- .lamb_gp_subtitle(g$n)
+    fit <- function(y) min(0.2, (y - 0.85) / max(length(v) - 1, 1))   # stay clear of the footer
+    y <- ytop - 0.1 - .lamb_text_height(sub, x1 - x0, 0.72) - 0.12   # caption wrapped
+    one <- fit(y) < 0.16                                              # else one shrunk line
+    if (one) y <- ytop - 0.42
+    rh <- fit(y)
     if (rh < 0.13) return(ytop)
     .lamb_rpt_label(x0, ytop, "Marker genes")
-    sub <- .lamb_gp_subtitle(g$n)
-    cex <- .lamb_fit_cex(sub, x1 - x0 + 0.4, 0.72, min_cex = 0.5)   # may run into the gutter, not the bars
-    graphics::text(x0, ytop - 0.2, sub, adj = c(0, 0.5), cex = cex, col = .LAMB_MUTED)
-    y <- ytop - 0.42
+    if (one) {
+        cex <- .lamb_fit_cex(sub, x1 - x0 + 0.4, 0.72, min_cex = 0.5)   # may run into the gutter, not the bars
+        graphics::text(x0, ytop - 0.2, sub, adj = c(0, 0.5), cex = cex, col = .LAMB_MUTED)
+    } else {
+        .lamb_text(x0, ytop - 0.1, sub, x1 - x0, cex = 0.72, col = .LAMB_MUTED)
+    }
     for (k in names(v)) {
         .lamb_gp_bar(k, v[[k]], x0, x1, y, lab_w = 0.7, cex = 0.8, lwd = 4)
         y <- y - rh

@@ -1,7 +1,7 @@
 # LAMBclassifier: Locked Method and Validation Policy
 
 This document describes classifier specification **2.0.0**, as shipped in
-package **1.0.0**.
+package **1.0.1**.
 
 Limits: see the package README.
 

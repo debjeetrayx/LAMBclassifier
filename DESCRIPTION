@@ -1,6 +1,6 @@
 Package: LAMBclassifier
 Title: Luminal-Apocrine-Metaplastic-Basal Breast Cancer Classifier
-Version: 1.0.0
+Version: 1.0.1
 Depends: R (>= 4.1),
  grDevices,
  graphics,
@@ -61,4 +61,5 @@ LazyDataCompression: xz
 URL: https://github.com/debjeetrayx/LAMBclassifier
 BugReports: https://github.com/debjeetrayx/LAMBclassifier/issues
 VignetteBuilder: knitr
+biocViews: Classification, GeneExpression, Transcriptomics
 Config/testthat/edition: 3

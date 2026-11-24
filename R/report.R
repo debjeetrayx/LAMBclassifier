@@ -325,10 +325,11 @@
     x0 + (x1 - x0) * sqrt(pmin(pmax(m, 0), .LAMB_GAUGE_MAX) / .LAMB_GAUGE_MAX)
 }
 
-.lamb_close_pair <- function(r) {
+# "MA-Lo beat LHS", or the generic form when the runner-up is unknown.
+.lamb_close_beat <- function(r) {
     p <- .lamb_path(r)
-    if (is.na(p$runner_up)) return("Two classes")
-    paste0(p$cls, " and ", p$runner_up)
+    if (is.na(p$runner_up)) return("The winning score beat the runner-up")
+    paste0(p$cls, " beat ", p$runner_up)
 }
 
 .lamb_unscored_text <- function(r) {
@@ -375,8 +376,8 @@
         mam <- top(c("basal_like", "luminal", "apocrine"))
         out[[1]] <- step("1", "Is a metaplastic program stronger than the mammary ones?", "Metaplastic?",
                          if (yes) paste0("Yes: ", cls) else "No",
-                         list(row(paste0("Metaplastic (", lab[[met]], ")"), met, yes),
-                              row(paste0("Mammary (", lab[[mam]], ")"), mam, !yes)), yes)
+                         list(row("Strongest metaplastic", met, yes),
+                              row("Strongest mammary", mam, !yes)), yes)
     }
     if (st[2] %in% c("passed", "decided")) {
         yes <- st[2] == "decided"
@@ -384,7 +385,7 @@
         out[[length(out) + 1]] <- step("2", "Is basal-like stronger than the luminal programs?", "Basal-like?",
                                        if (yes) "Yes: Basal-like" else "No",
                                        list(row("Basal-like", "basal_like", yes),
-                                            row(paste0("Luminal (", lab[[lum]], ")"), lum, !yes)), yes)
+                                            row("Strongest luminal", lum, !yes)), yes)
     }
     if (st[3] == "decided") {
         malo <- cls == "MA-Lo"
@@ -416,6 +417,7 @@
 # ---- drawing primitives for the compact pages ----
 
 # Winner filled, runner-up hollow.
+.LAMB_LEGEND <- c("wins the step", "does not win", "Further right = higher score.")
 .lamb_rpt_dot <- function(x, y, win, decides, cls, cex = 1.6) {
     if (win) {
         graphics::points(x, y, pch = 21, cex = cex, lwd = 0.8, col = .LAMB_INK,
@@ -465,10 +467,18 @@
     tx <- x0 + chip[["w"]] + 0.35
     tw <- min(6.2, W - x0 - tx)
     ctext <- .lamb_class_text[[cls]]
+    if (cls == "NC") {
+        u <- .lamb_unscored_text(r)
+        ctext <- paste0(toupper(substr(u, 1, 1)), substring(u, 2),
+                        " could not be scored (genes not measured or missing in this sample), so no class is given.")
+    }
     lean <- .lamb_malo_lean(r)
     if (length(lean) && nzchar(lean[1])) {
         lt <- .lamb_lean_text(lean[1])
-        ctext <- paste0(toupper(substr(lt, 1, 1)), substring(lt, 2), ". ", ctext)
+        lt <- paste0(toupper(substr(lt, 1, 1)), substring(lt, 2),
+                     switch(lean[1], "LHS-leaning" = " (LHS above Apocrine)",
+                            "apocrine-leaning" = " (Apocrine above LHS)", ""))
+        ctext <- paste0(lt, ". ", ctext)
     }
     meaning <- .lamb_wrap(ctext, tw, 1)
     pam <- if ("PAM50" %in% names(r)) as.character(r[["PAM50"]]) else NA_character_
@@ -487,15 +497,15 @@
 
 .lamb_rpt_confidence <- function(r, conf, min_margin, x0, x1, ytop) {
     w <- x1 - x0
-    .lamb_rpt_label(x0, ytop, "How sure")
+    .lamb_rpt_label(x0, ytop, "How clear-cut")
     word <- switch(conf, "clear" = "Clear", "close call" = "Close call", "Not classifiable")
     graphics::text(x0, ytop - 0.42, word, adj = c(0, 0.5), cex = 1.7, font = 2)
     margin <- .lamb_report_num(r, "Margin")
     msg <- switch(conf,
-        "clear" = paste0("The winning class was ahead by more than the ", min_margin, " minimum (margin ",
+        "clear" = paste0("The winning score beat the runner-up by at least the ", min_margin, " margin (here ",
                          .lamb_fmt(margin), ")."),
-        "close call" = paste0(.lamb_close_pair(r), " scored almost the same (margin ", .lamb_fmt(margin),
-                              "). Treat the class as uncertain."),
+        "close call" = paste0(.lamb_close_beat(r), " by less than the ", min_margin, " margin (here ",
+                              .lamb_fmt(margin), "). Treat the class as uncertain."),
         { u <- .lamb_unscored_text(r)
           paste0(toupper(substr(u, 1, 1)), substring(u, 2), " could not be scored: its genes were not measured or are missing in this sample.") })
     y <- .lamb_text(x0, ytop - 0.72, msg, w, cex = 0.9) - 0.25
@@ -522,8 +532,9 @@
     .lamb_rpt_label(x0, ytop, "Genes measured")
     y <- ytop - 0.22
     if (nzchar(low)) {
-        txt <- paste0("Few genes measured for ", low, " (below ", round(100 * .lamb_min_coverage(r)),
-                      "%).", if (conf != "not classifiable") " Read the class with care.")
+        txt <- paste0(if (grepl("(^| )0/", low)) "Genes measured, below " else "Few genes measured, below ",
+                      round(100 * .lamb_min_coverage(r)), "%: ", low,
+                      ".", if (conf != "not classifiable") " Read the class with care.")
         y <- .lamb_text(x0, y, txt, x1 - x0, cex = 0.9, font = 2) - 0.06
     }
     if (nzchar(chon)) y <- .lamb_text(x0, y, chon, x1 - x0, cex = 0.9)
@@ -581,7 +592,7 @@
 
 
 .lamb_rpt_path <- function(m, x0, x1, ytop) {
-    .lamb_rpt_label(x0, ytop, "Why this class")
+    .lamb_rpt_label(x0, ytop, if (m$cls == "NC") "Why no class" else "Why this class")
     y <- ytop - 0.32
     if (!m$any_score && m$cls != "NC") {
         .lamb_text(x0, y, "The scores behind this call were not kept with these results.", x1 - x0,
@@ -627,12 +638,12 @@
     if (any(vapply(m$steps, function(s) length(s$rows) > 0, TRUE))) {
         ly <- y - 0.15
         lx <- x0 + 0.35
-        .lamb_rpt_dot(lx + 0.05, ly, TRUE, FALSE, m$cls, cex = 0.9)
-        graphics::text(lx + 0.15, ly, "stronger score", adj = c(0, 0.5), cex = 0.72, col = .LAMB_MUTED)
-        lx <- lx + 0.25 + graphics::strwidth("stronger score", units = "user", cex = 0.72) + 0.25
-        .lamb_rpt_dot(lx + 0.05, ly, FALSE, FALSE, m$cls, cex = 0.9)
-        graphics::text(lx + 0.15, ly, "weaker score  (further right = more strongly switched on in this sample)",
-                       adj = c(0, 0.5), cex = 0.72, col = .LAMB_MUTED)
+        for (k in seq_along(.LAMB_LEGEND)) {
+            if (k < 3) .lamb_rpt_dot(lx + 0.05, ly, k == 1, FALSE, m$cls, cex = 0.9)
+            tx <- lx + if (k < 3) 0.15 else 0
+            graphics::text(tx, ly, .LAMB_LEGEND[[k]], adj = c(0, 0.5), cex = 0.72, col = .LAMB_MUTED)
+            lx <- tx + graphics::strwidth(.LAMB_LEGEND[[k]], units = "user", cex = 0.72) + 0.35
+        }
         y <- ly - 0.15
     }
     invisible(y)
@@ -668,7 +679,7 @@
     }
 
     cx <- 7.3
-    .lamb_rpt_label(cx, ytop, "How sure", cex = 0.85)
+    .lamb_rpt_label(cx, ytop, "How clear-cut", cex = 0.85)
     cf <- table(factor(conf, levels = c("clear", "close call", "not classifiable")))
     nm <- c("Clear", "Close call", "Not classifiable")
     for (i in seq_along(cf)) {
@@ -695,8 +706,9 @@
 
     hy <- ytop - 0.35 - length(lv) * rh - 0.55
     .lamb_rpt_label(x0, hy, "How to read each page", cex = 0.85)
-    help <- c("Each page gives the class (the coloured box), how sure the call is, and the steps that led to it.",
-              "Close call: two classes scored almost the same. Not classifiable: a needed signature could not be measured.",
+    help <- c("Each page gives the class (the coloured box), how clear-cut the call is, and the steps that led to it.",
+              paste0("Clear: the winning score beat the runner-up by at least the ", .lamb_min_margin(results),
+                     " margin; otherwise a close call. Not classifiable: a needed signature could not be measured."),
               "HER2 amplicon is reported beside every class and never changes it.",
               "Classes are expression patterns, not ER/PR/HER2 test results or a histological diagnosis.")
     y <- hy - 0.25
@@ -769,7 +781,9 @@ lamb_report <- function(results, file, title = NULL) {
         page <- page + 1L
         top <- .lamb_rpt_header(r, title, i, n, results)
         lx1 <- 4.0
-        y <- .lamb_rpt_confidence(r, conf[i], min_margin, x0, lx1, top)
+        # NC: the chip and header already say it, so no confidence block
+        y <- if (identical(as.character(r[["Pred_Class"]]), "NC")) top + 0.35 else
+            .lamb_rpt_confidence(r, conf[i], min_margin, x0, lx1, top)
         y <- .lamb_rpt_coverage(results, coverage, conf[i], x0, lx1, y - 0.35)
         .lamb_gp_strip(results, as.character(r[["Sample"]]), x0, lx1, y - 0.4)
         .lamb_rpt_path(.lamb_rpt_steps(r), 4.75, W - x0, top)
@@ -832,10 +846,9 @@ lamb_report <- function(results, file, title = NULL) {
 
 .lamb_s2_mini_text <- function(d) {
     amp <- if ("HER2_Amplicon" %in% names(d)) as.character(d[["HER2_Amplicon"]]) else NA_character_
-    lean <- .lamb_malo_lean(d)
     her2 <- if (!length(amp) || is.na(amp) || amp == "not high") "" else
         if (amp == "not assessable") "HER2 amplicon: not assessed on this platform." else paste("HER2 amplicon", amp)
-    paste(c(if (length(lean) && nzchar(lean[1])) .lamb_lean_text(lean[1]), if (nzchar(her2)) her2), collapse = "; ")
+    her2   # the MA-Lo lean is already the step-3 answer in the panel
 }
 
 # Single-cell / spatial: one panel per epithelial cluster, up to 12 per page.
@@ -862,7 +875,7 @@ lamb_report_cells <- function(calls, details, file, title = NULL) {
         graphics::text(x0, H - 0.55, title, adj = c(0, 0.5), cex = 1.4, font = 2)
         sub <- paste0(nrow(shown), if (nrow(shown) == 1) " epithelial cluster, classified from its pooled cells. "
                       else " epithelial clusters, each classified from its pooled cells. ",
-                      "Filled dot = stronger score at each step.")
+                      "Filled dot = wins the step; further right = higher score.")
         yb <- .lamb_text(x0, H - 0.75, sub, W - 2 * x0, cex = 0.78, col = .LAMB_MUTED)
         low <- .lamb_low_coverage_text(details)
         if (nzchar(low)) {

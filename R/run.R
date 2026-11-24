@@ -123,7 +123,14 @@
 #'   \code{out_dir}.
 #'
 #' @examples
+#' # The bundled public example; results go to a temporary folder.
+#' res <- lamb_run(system.file("extdata", "example_bulk.csv", package = "LAMBclassifier"),
+#'                 out_dir = tempfile("lamb_"))
+#' res$calls
+#' list.files(res$out_dir)
+#'
 #' \dontrun{
+#' # Your own data: results go to LAMB_results_<name> next to the input.
 #' lamb_run("expression_counts.csv")
 #' lamb_run("xenium_output_folder")
 #' lamb_run("xenium_output_folder", he_image = "HE.ome.tif",
@@ -419,25 +426,30 @@ lamb_run <- function(input,
 }
 
 .lamb_run_cells <- function(input, out_dir, clusters, platform, min_cells, say, he = list(), tumour_clusters = NULL) {
-    loaded <- .lamb_read_cells(input, platform, say)
+    loaded <- .lamb_read_cells(input, platform, say, user_clusters = !is.null(clusters))
     counts <- loaded$counts
     if (identical(loaded$unit, "spot")) {
         say("Visium spots hold several cells each, often of different types: a class describes a cluster ",
             "of spots, and the cell-type gate reads 'spots' where it says 'cells'.")
     }
+    units <- c(cell = "cells", spot = "spots", bin = "bins")[[loaded$unit]]
     grp <- .lamb_groups(clusters, loaded$clusters, colnames(counts), say, platform, loaded$meta)
     keep <- !is.na(grp)
-    if (!any(keep)) stop("No cell has a cluster. Check that the cluster barcodes match the data.", call. = FALSE)
-    if (any(!keep)) say(sum(!keep), " cells have no cluster and are left out.")
+    if (!any(keep)) stop("No ", sub("s$", "", units), " has a cluster. Check that the cluster barcodes match the data.", call. = FALSE)
+    if (any(!keep)) say(sum(!keep), " ", units, " have no cluster and are left out.")
     counts <- counts[, keep, drop = FALSE]
     grp <- factor(as.character(grp[keep]))
-    say("Cells: ", ncol(counts), "; clusters: ", nlevels(grp), "; genes: ", nrow(counts))
+    say(toupper(substr(units, 1, 1)), substring(units, 2), ": ", ncol(counts), "; clusters: ", nlevels(grp), "; genes: ", nrow(counts))
 
     epi_genes <- intersect(.LAMB_EPITHELIAL, rownames(counts))
-    if (!length(epi_genes)) say("No epithelial marker on this panel: the cell-type gate is skipped.")
-    cell_epi <- if (length(epi_genes)) Matrix::colSums(counts[epi_genes, , drop = FALSE] > 0) > 0 else rep(TRUE, ncol(counts))
-    say("Epithelial_share (reported, not used to decide): share of cells detecting one of ",
-        paste(epi_genes, collapse = ", "), ".")
+    if (length(epi_genes)) {
+        cell_epi <- Matrix::colSums(counts[epi_genes, , drop = FALSE] > 0) > 0
+        say("Epithelial_share (reported, not used to decide): share of ", units, " detecting one of ",
+            paste(epi_genes, collapse = ", "), ".")
+    } else {
+        cell_epi <- rep(NA, ncol(counts))
+        say("No epithelial marker on this panel: Epithelial_share is left empty.")
+    }
 
     n_cells <- as.vector(table(grp)[levels(grp)])
     epi_share <- as.vector(tapply(cell_epi, grp, mean)[levels(grp)])
@@ -565,7 +577,7 @@ lamb_run <- function(input,
 }
 
 .lamb_write_common <- function(det, calls, out_dir) {
-    utils::write.csv(calls, file.path(out_dir, "LAMB_calls.csv"), row.names = FALSE)
+    utils::write.csv(calls, file.path(out_dir, "LAMB_calls.csv"), row.names = FALSE, na = "")
     suppressMessages(export_results(det, file.path(out_dir, "technical", "LAMB_details.csv")))
     utils::write.table(attr(det, "coverage"), file.path(out_dir, "technical", "signature_coverage.tsv"),
                        sep = "\t", quote = FALSE, row.names = FALSE)
@@ -669,7 +681,7 @@ lamb_run <- function(input,
         graphics::text(50, mean(b), "No tumour-epithelium cluster\nwas classified", cex = 0.85, col = "#666666")
     }
     graphics::title("% of epithelial cells", cex.main = 1, font.main = 1)
-    graphics::mtext(paste("Slide class:", slide$call), side = 3, line = 2.8, adj = 0, cex = 1.35, font = 2, outer = TRUE)
+    graphics::mtext(paste("Slide class:", sub("^mixed: (.*)$", "mixed (\\1)", slide$call)), side = 3, line = 2.8, adj = 0, cex = 1.35, font = 2, outer = TRUE)
     graphics::mtext("LAMB classes of the epithelial cells", side = 3, line = 1.4, adj = 0, cex = 0.9, outer = TRUE)
     graphics::mtext(sub, side = 3, line = 0.3, adj = 0, cex = 0.7, col = "#666666", outer = TRUE)
     .lamb_footer()

@@ -89,6 +89,23 @@ LAMBclassifier::lamb_run(system.file("extdata", "example_patient.csv", package =
 Without `out_dir`, results go into a new folder next to the input
 (`LAMB_results_<name>`).
 
+All arguments of `lamb_run()` (full help: `?lamb_run`):
+
+| Argument | Default | Use |
+| :--- | :--- | :--- |
+| `input` | file picker | Path to a file or folder |
+| `out_dir` | `LAMB_results_<name>` next to the input | Folder for the results |
+| `values` | `"auto"` | Bulk only: declare `"counts"`, `"tpm"` or `"log2"` |
+| `run_pam50` | `"auto"` (20 or more samples) | `TRUE` / `FALSE` to force PAM50 on or off |
+| `clusters` | the instrument's clusters | Cell annotation column, CSV file or named vector |
+| `tumour_clusters` | none | Clusters to classify whatever their markers |
+| `min_cells` | `50` | Smaller clusters are listed but not classified |
+| `data_type` | `"auto"` | `"bulk"`, `"single_cell"` or `"spatial"` |
+| `he_image`, `he_alignment`, `he_downsample` | none | Xenium H&E background (below) |
+
+The report opens by itself only after the file picker or the desktop icon;
+a run given a path just writes the files.
+
 ### What it accepts
 
 Formats are recognised from the file contents, never from column positions. When
@@ -152,7 +169,7 @@ image; below 90 % it warns that the alignment may belong to another section.
 KRT5, TP63 and MKI67 as their rank within the sample (100 = highest of the
 measured genes): RNA levels comparable across platforms, not IHC results.
 
-**How sure is the call?** *Clear* when the winning class led by at least 0.02 at
+**How clear-cut is the call?** *Clear* when the winning class led by at least 0.02 at
 the deciding step; *close call* when two classes scored almost the same;
 *not classifiable* when a required signature could not be scored on the
 platform.
@@ -183,16 +200,25 @@ report, and `export_results()` writes the full output.
 ### Plots
 
 Each function takes the result of `LAMBclassifier()` and writes files to
-`output_prefix`:
+`output_prefix`; the folder must exist. With the bundled example:
 
 ```r
+library(LAMBclassifier)
+expr <- as.matrix(read.csv(system.file("extdata", "example_bulk.csv", package = "LAMBclassifier"),
+                           row.names = 1, check.names = FALSE))
+results <- LAMBclassifier(expr, run_pam50 = FALSE)
+dir.create("figures", showWarnings = FALSE)
+
 plot_comprehensive_heatmap(expr, results, output_prefix = "figures/heatmap")
 plot_lineage_tree(results, output_prefix = "figures/tree")
 plot_decision_boundaries(results, output_prefix = "figures/boundaries")
 plot_expression_scatter(expr, results, "GATA3", "AR", output_prefix = "figures/g_a")
-plot_confusion_matrix(results, truth_col = "PAM50", output_prefix = "figures/cm")
 generate_standard_heatmaps(expr, results, output_prefix = "figures/standard")
 ```
+
+`plot_confusion_matrix(results, truth_col = "PAM50", output_prefix = "figures/cm")`
+needs a reference-label column in `results`, such as `PAM50` from a run of 20
+or more samples with `run_pam50 = TRUE`; without one it returns `NULL`.
 
 Worked examples are in the vignette: `vignette("LAMBclassifier")`.
 
@@ -230,7 +256,7 @@ spec$universe_size     # 13468
 Two version numbers are tracked separately. The **package version** in
 `DESCRIPTION` is the software release. The **specification version** from
 `lamb_specification()` covers the signatures, universe, gate order and
-thresholds. The package is `1.0.0`; the specification is `2.0.0`. See
+thresholds. The package is `1.0.1`; the specification is `2.0.0`. See
 [`NEWS.md`](NEWS.md).
 
 The two hashes identify the **signature genes** and the **universe**. They do

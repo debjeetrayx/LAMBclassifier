@@ -44,6 +44,6 @@ you are asked first; otherwise set \code{overwrite = TRUE}.
 }
 \examples{
 # Writes to a temporary folder here; by default it goes to the Desktop.
-path <- lamb_install_launcher(dir = tempdir())
+path <- lamb_install_launcher(dir = tempdir(), overwrite = TRUE)
 readLines(path)
 }

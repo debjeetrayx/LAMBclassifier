@@ -10,7 +10,7 @@ abstract: >-
 authors:
   - family-names: Ray
     given-names: Debjeet
-version: 1.0.0
+version: 1.0.1
 license: GPL-3.0-or-later
 repository-code: "https://github.com/debjeetrayx/LAMBclassifier"
 keywords:

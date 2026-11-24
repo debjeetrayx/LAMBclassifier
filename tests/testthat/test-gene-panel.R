@@ -100,6 +100,7 @@ test_that("marker strip lists measured markers only and is omitted when none is"
     pct[, c("ESR1", "AR")] <- c(90, 10)
     attr(res, "gene_percentiles") <- pct
     y <- .lamb_gp_strip(res, s, 0.6, 4, 5)
+    cap <- .lamb_text_height(.lamb_gp_subtitle(.lamb_gp_row(res, s)$n), 3.4, 0.72)   # wrapped caption
     grDevices::dev.off()
-    expect_equal(y, 5 - 0.42 - 2 * 0.2)                          # two rows
+    expect_equal(y, 5 - 0.1 - cap - 0.12 - 2 * 0.2)              # two rows
 })

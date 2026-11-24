@@ -106,6 +106,39 @@ test_that("small clusters are reported but not classified; own cluster file is h
     expect_equal(r$calls$LAMB_class[r$calls$Cluster == "3"], "Too few cells")
 })
 
+test_that("Visium: the run log counts spots, not cells, and spots the instrument left unclustered are named so", {
+    s <- sim_cells()
+    d <- tempfile(); outs <- file.path(d, "outs")
+    write_10x(outs, s$m, clusters = s$clusters[-1])   # Space Ranger clusters skip some spots
+    dir.create(file.path(outs, "spatial"))
+    n <- ncol(s$m)
+    utils::write.csv(data.frame(barcode = colnames(s$m), in_tissue = 1L, array_row = seq_len(n), array_col = seq_len(n),
+                                pxl_row_in_fullres = seq_len(n) * 100, pxl_col_in_fullres = seq_len(n) * 200),
+                     file.path(outs, "spatial", "tissue_positions.csv"), row.names = FALSE)
+    writeLines('{"spot_diameter_fullres": 177.5}', file.path(outs, "spatial", "scalefactors_json.json"))
+    out <- tempfile()
+    r <- suppressWarnings(suppressMessages(lamb_run(d, out_dir = out)))
+    log <- readLines(file.path(out, "technical/run_log.txt"))
+    expect_true("1 spots have no cluster and are left out." %in% log)
+    expect_true(any(startsWith(log, paste0("Spots: ", n - 1, "; clusters: 2"))))
+    expect_true(any(grepl("share of spots detecting one of", log)))
+    expect_false(any(grepl("cells have no cluster", log)))
+})
+
+test_that("a panel without any epithelial marker leaves Epithelial_share empty, not 100%", {
+    s <- sim_cells()
+    m <- s$m[setdiff(rownames(s$m), .LAMB_EPITHELIAL), ]
+    d <- tempfile(); write_10x(d, m, clusters = s$clusters)
+    out <- tempfile()
+    r <- suppressWarnings(suppressMessages(lamb_run(d, out_dir = out)))
+    expect_true(all(is.na(r$calls$Epithelial_share)))
+    calls <- utils::read.csv(file.path(out, "LAMB_calls.csv"), colClasses = "character")
+    expect_true(all(calls$Epithelial_share == ""))
+    log <- readLines(file.path(out, "technical/run_log.txt"))
+    expect_true("No epithelial marker on this panel: Epithelial_share is left empty." %in% log)
+    expect_false(any(grepl("detecting one of \\.$", log)))
+})
+
 test_that("a folder without clusters stops with a plain instruction", {
     s <- sim_cells()
     d <- tempfile(); write_10x(d, s$m)
