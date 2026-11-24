@@ -1,0 +1,10 @@
+Key	Value
+classifier_version	2.0.0
+signature_sha256	fe7c5dc714d7c6e72b1b70042076b6d067164d18f8b95648a299fe4c9be0336d
+universe_sha256	81454b9a99665ed0ff17892eb66db028d67123d7b1aeb5779e39752694c3c7c0
+universe_size	13468
+min_margin	0.02
+min_gene_coverage	0.6
+her2_amplicon_genes	ERBB2,GRB7,MIEN1,PGAP3,STARD3
+her2_amplicon_q	9
+exported_utc	2026-11-20 15:15:02 UTC

@@ -1,0 +1,6 @@
+SIMULATED DATA - no tissue was measured.
+Cells were Poisson-sampled from public GEO GSE20194 bulk profiles
+(GSM505471 LHS, GSM505423 Basal-like, GSM505546 MA-Lo) plus a
+non-epithelial stand-in group, placed in separate regions of a 2 x 1.5 mm field.
+For trying LAMBclassifier::lamb_run() on a Xenium-format folder only.
+Recipe: data-raw/xenium_sim.R in the package source. See ../README.md.

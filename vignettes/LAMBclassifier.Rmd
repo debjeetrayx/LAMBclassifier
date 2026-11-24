@@ -1,0 +1,272 @@
+---
+title: "Getting started with LAMBclassifier"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with LAMBclassifier}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", message = FALSE)
+show <- function(df) knitr::kable(df, row.names = FALSE)
+# Load once here so start-up notes from dependencies stay out of the text.
+suppressWarnings(suppressPackageStartupMessages(library(LAMBclassifier)))
+```
+
+## What LAMB is
+
+LAMBclassifier reads a breast cancer gene-expression profile and places it in
+one of six expression-defined classes: **LHS** (luminal hormone-sensing),
+**Apocrine**, **MA-Lo**, **Basal-like**, **Chondroid** and
+**Squamous**. Beside every class it reports a HER2 amplicon read-out
+(`HER2_Amplicon`), which never changes the class. The rule is fixed and deterministic, and it scores each sample on
+its own. A sample's call never depends on the other samples in the same file.
+
+- **Squamous and Chondroid in bulk data describe an expression programme, not
+  histology.** A bulk tumour called Squamous expresses the squamous gene
+  programme.
+- **HER2 amplicon "high"** means at least 3 of the ERBB2-amplicon genes rank in
+  the sample's top 9%. It is an expression read-out, not a DNA amplification
+  test or a clinical HER2 status. **MA-Lo** has ER activity well below LHS and AR activity well below Apocrine,
+  and is reported as LHS-leaning, apocrine-leaning, or balanced (scores within 0.02).
+- A call can carry the flag `close_call` (two classes scored almost the same)
+  or `low_coverage` (signature genes missing from the platform). `NC` means
+  not classifiable.
+
+The limits are listed once, in the Limits section of the package README.
+
+## One patient
+
+You need a table with gene names in the first column and the patient's
+expression values in the second. The package includes one public tumour profile
+(GEO GSE20194, sample GSM505471) as an example:
+
+```{r patient}
+library(LAMBclassifier)
+
+patient_file <- system.file("extdata", "example_patient.csv", package = "LAMBclassifier")
+res <- lamb_run(patient_file, out_dir = file.path(tempdir(), "one_patient"),
+                run_pam50 = FALSE)
+show(res$calls)
+```
+
+This patient is **LHS**. The `Note` column is empty because nothing needs
+flagging. `run_pam50 = FALSE` skips PAM50, which needs a cohort.
+
+You can also run it from a terminal, with no R session open:
+
+```{r terminal, eval = FALSE}
+# In a terminal:
+#   Rscript -e 'LAMBclassifier::lamb_run("path/to/patient.csv")'
+```
+
+If you prefer not to type at all, put a double-click icon on your Desktop once:
+
+```{r launcher, eval = FALSE}
+lamb_install_launcher()
+```
+
+Double-click the icon, choose the data file or folder, and the results are
+written next to it.
+
+## A cohort
+
+Use the same command on a table with several samples in its columns. This
+example holds six public GSE20194 tumours, one for each class:
+
+```{r cohort}
+bulk_file <- system.file("extdata", "example_bulk.csv", package = "LAMBclassifier")
+cohort <- lamb_run(bulk_file, out_dir = file.path(tempdir(), "cohort"), run_pam50 = FALSE)
+show(cohort$calls)
+```
+
+The receptor status recorded in GEO for these samples fits the calls: GSM505471
+is ER+/PR+, GSM505546 is HER2+, and the other four are triple-negative by
+receptor testing. The Apocrine, Basal-like, Squamous and Chondroid calls
+separate tumours that receptor status alone would all call "triple-negative".
+
+The scores and the margin to the runner-up class are in `details`:
+
+```{r cohort-details}
+show(cohort$details[, c("Sample", "Pred_Class", "Margin", "Flag",
+                        "Score_LHS", "Score_Apocrine", "Score_MALO", "Score_Basal_Like",
+                        "HER2_Amplicon")])
+```
+
+With raw counts or TPM rather than log values, nothing changes: `lamb_run()`
+recognises the scale and converts it, and the run log records what it did.
+PAM50 is added automatically for 20 or more samples (`run_pam50 = "auto"`, the
+default); `run_pam50 = TRUE` forces it.
+
+## Single-cell
+
+LAMB scores **groups of cells**, never single cells. It sums the counts of each
+cluster (a pseudobulk) and scores that sum like a bulk sample. It also checks
+whether each cluster is tumour epithelium: within the cluster's pseudobulk, gene
+modules for epithelium, immune cells, vessels, adipocytes and fibroblasts are
+compared, and a cluster where another module outranks the epithelial one is left
+out and named by what dominates (for example "immune"); its class is not reported.
+Metaplastic tumour cells can lose epithelial genes: name such clusters with
+`tumour_clusters =` to classify them.
+
+The example is real public 10x Chromium data: 235 cells from one ER+
+tumour (Wu et al. 2021, GEO GSM5354516), with the authors' cell-type labels as
+the clusters.
+
+```{r single-cell}
+tenx_dir <- system.file("extdata", "example_10x", package = "LAMBclassifier")
+sc <- lamb_run(tenx_dir, out_dir = file.path(tempdir(), "single_cell"))
+show(sc$calls)
+show(sc$slide)
+```
+
+The cancer epithelial cells are **LHS**, which fits an ER+ tumour. The T and
+B cell clusters are left out as immune by the cell-type gate, so the classes
+computed for them are not reported and they are left out of the sample
+summary. If your clusters are in your
+own file, pass `clusters = "my_clusters.csv"` (two columns: cell barcode,
+cluster).
+
+## Spatial
+
+A Xenium output folder is handled the same way. The run also writes a tissue
+map in `LAMB_summary.pdf` and a file to load into Xenium Explorer.
+
+The example is **simulated**: 450 cells sampled from three public bulk
+profiles, with each class placed in its own region of a 2 x 1.5 mm field and an
+immune-like stand-in group filling the space between. No tissue was measured.
+
+```{r spatial}
+xenium_dir <- system.file("extdata", "xenium_sim", package = "LAMBclassifier")
+sp <- lamb_run(xenium_dir, out_dir = file.path(tempdir(), "spatial"))
+show(sp$calls)
+show(sp$slide[, c("Slide_class", "Epithelial_cells_classified", "LHS (%)",
+                  "Basal-like (%)", "MA-Lo (%)")])
+```
+
+Each simulated region gets the class it was built from: LHS, Basal-like and
+MA-Lo; the immune-like group is left out by the cell-type gate. The MA-Lo
+region also reads HER2 amplicon "high": its source profile is clinically
+HER2-positive. The other two regions read "not high".
+Because no class holds half of the epithelial cells, the slide-level call is
+reported as **mixed**, with every class at 10% or more named. The run does not force one label onto it.
+On a targeted panel, LAMB scores only the genes the panel measures. The
+`technical/signature_coverage.tsv` file shows how many genes of each signature
+were present.
+
+## What files you get
+
+```{r files}
+list.files(sp$out_dir, recursive = TRUE)
+```
+
+| File | For whom | What it holds |
+|---|---|---|
+| `LAMB_calls.csv` | everyone | one row per sample (bulk) or cluster (single-cell, spatial): class, HER2 amplicon read-out, how sure the call is, and a plain-language note |
+| `LAMB_report.pdf` | bulk | one page per sample (after a cohort overview when there are several) |
+| `LAMB_genes.pdf` | everyone | one page per sample or classified cluster: every scored gene as its rank within the sample (100 = highest) |
+| `LAMB_summary.pdf` | single-cell, spatial | the slide class, percentages and, when cell positions are present, a tissue map |
+| `LAMB_clusters.pdf` | single-cell, spatial | why each epithelial cluster got its class |
+| `LAMB_slide.csv` | single-cell, spatial | the slide-level class and the percentage of epithelial cells in each class |
+| `LAMB_xenium_explorer.csv` | Xenium | load in Xenium Explorer (Cells > Cell groups) to see the classes on the tissue |
+| `technical/LAMB_details.csv` | analysts | all scores, margins, flags and specification hashes |
+| `technical/signature_coverage.tsv` | analysts | how many genes of each signature were measured |
+| `technical/LAMB_details_provenance.tsv`, `..._signatures.tsv` | analysts | the classifier specification used |
+| `technical/run_log.txt` | anyone checking the run | every automatic decision, plus versions and hashes |
+
+## Inputs accepted
+
+`lamb_run()` works out the data type from the file or folder you give it.
+
+**Bulk** (genes x samples, or samples x genes, which is detected and
+transposed):
+
+- plain tables: `.csv`, `.tsv`, `.txt` (optionally `.gz`), `.xlsx`;
+- Salmon `quant.sf`, kallisto `abundance.tsv`, featureCounts output,
+  STAR `ReadsPerGene.out.tab`, RSEM `genes.results`, HTSeq-count;
+- a folder with one such file per patient;
+- an `.rds` holding a matrix.
+
+Gene names can be HGNC symbols or Ensembl IDs. Raw counts, TPM / FPKM and log2
+values are recognised.
+
+**Single-cell:** a 10x Cell Ranger folder (`outs/` or
+`filtered_feature_bc_matrix/`) or `.h5` file, an AnnData `.h5ad`, or a Seurat or
+SingleCellExperiment object saved as `.rds`.
+
+**Spatial:** Xenium, Visium, Visium HD, CosMx and MERSCOPE output folders.
+
+```{r inputs, eval = FALSE}
+lamb_run("counts.xlsx")                          # spreadsheet, either orientation
+lamb_run("salmon/sample1/quant.sf")              # one Salmon sample
+lamb_run("quantifications/")                     # a folder of per-patient files
+lamb_run("sample_filtered_feature_bc_matrix.h5") # 10x HDF5
+lamb_run("atlas.h5ad")                           # AnnData
+lamb_run("tumour_seurat.rds")                    # Seurat object; groups = Idents()
+lamb_run("visium_outs/")                         # Visium / Visium HD
+lamb_run("cosmx_run/")                           # CosMx
+lamb_run("merscope_run/")                        # MERSCOPE
+lamb_run()                                       # no path: a file picker opens
+```
+
+## Reproducibility
+
+The classifier is locked. Its gene lists and universe are identified by
+SHA-256 hashes, and the decision rule and thresholds by the specification
+version; every result row carries all three. If two results share the version
+and both hashes, they came from the same classifier:
+
+```{r spec}
+spec <- lamb_specification()
+spec[c("version", "signature_sha256", "universe_sha256", "universe_size")]
+```
+
+The run log records the input, each automatic decision (scale detected,
+cell-type gate, cluster source), the package version, the hashes, the R
+version and the time:
+
+```{r runlog}
+cat(readLines(file.path(cohort$out_dir, "technical", "run_log.txt")), sep = "\n")
+```
+
+The classifier has no random step: the same input gives the same calls.
+
+## For analysts
+
+`lamb_run()` is a wrapper around `LAMBclassifier()`. Use that function directly
+on a log2 genes x samples matrix when you want the full result table in R:
+
+```{r analyst}
+expr <- as.matrix(read.csv(bulk_file, row.names = 1, check.names = FALSE))
+full <- LAMBclassifier(expr, run_pam50 = FALSE)
+summary_lamb_results(full)
+attr(lamb_score(expr), "coverage")
+```
+
+PAM50 and LAMB describe different taxonomies. Compare them with a full
+cross-classification, not as truth versus prediction:
+
+```{r pam50, eval = FALSE}
+results <- LAMBclassifier(expr_cohort, run_pam50 = TRUE)
+lamb_cross_tab(results$Pred_Class, results$PAM50)
+lamb_cramers_v(results$Pred_Class, results$PAM50)
+lamb_binary_metrics(results$Pred_Class, results$PAM50,
+                    positive_predicted = "LHS", positive_reference = c("LumA", "LumB"))
+```
+
+Custom gene lists make a different classifier. `LAMBclassifier()` accepts them,
+but the hashes change, and the result needs its own development and
+validation. The validation policy is in
+`system.file("METHODS.md", package = "LAMBclassifier")`.
+
+## Example data
+
+All examples come from public data. Simulated files say so in their names.
+Accessions, citations, terms of use and the exact subsets are listed in
+`system.file("extdata", "README.md", package = "LAMBclassifier")`.
+
+- `example_bulk.csv`, `example_patient.csv`: GEO GSE20194 (Popovici et al.,
+  *Breast Cancer Res* 2010; MAQC-II).
+- `example_10x/`: GEO GSM5354516 from GSE176078 (Wu et al., *Nat Genet* 2021).
+- `xenium_sim/`: **simulated** from GSE20194 profiles.

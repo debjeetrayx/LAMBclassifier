@@ -1,0 +1,64 @@
+Package: LAMBclassifier
+Title: Luminal-Apocrine-Metaplastic-Basal Breast Cancer Classifier
+Version: 1.0.0
+Depends: R (>= 4.1),
+ grDevices,
+ graphics,
+ stats
+Imports: ggplot2,
+ pheatmap,
+ genefu (>= 2.34.0),
+ singscore (>= 1.12.0),
+ dplyr,
+ tibble,
+ gridExtra,
+ digest,
+ Matrix,
+ methods
+Suggests: 
+    arrow,
+    data.table,
+    hdf5r,
+    jpeg,
+    knitr,
+    png,
+    R.utils,
+    readxl,
+    rhdf5,
+    rmarkdown,
+    rstudioapi,
+    SeuratObject,
+    SingleCellExperiment,
+    SummarizedExperiment,
+    tcltk,
+    terra,
+    testthat (>= 3.0.0),
+    writexl
+Authors@R: c(
+    person(given = "Debjeet",
+           family = "Ray",
+           email = "debjeet.ray@etu.u-bordeaux.fr",
+           role = c("aut", "cre")),
+    person(given = "Richard",
+           family = "Iggo",
+           role = c("ctb", "cph"),
+           comment = c(ORCID = "0000-0002-8822-9111",
+                       "LABClassifier, on whose concept LAMBclassifier is built and from which code is adapted")))
+Description: Luminal-Apocrine-Metaplastic-Basal (LAMB) classifier for
+ breast cancer expression data. Assigns research samples to six
+ expression-defined classes reflecting a proposed mammary differentiation
+ hierarchy: LHS, Apocrine, MA-Lo, Basal-like, Chondroid, and
+ Squamous, with an ERBB2-amplicon expression read-out reported beside
+ every class. Classification uses a deterministic
+ decision tree powered by singscore rank enrichment. The package is for
+ research use and its labels are not clinical diagnoses.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+LazyData: true
+LazyDataCompression: xz
+URL: https://github.com/debjeetrayx/LAMBclassifier
+BugReports: https://github.com/debjeetrayx/LAMBclassifier/issues
+VignetteBuilder: knitr
+Config/testthat/edition: 3

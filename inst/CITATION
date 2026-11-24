@@ -1,0 +1,28 @@
+citHeader("To cite LAMBclassifier in publications, please use:")
+
+bibentry(
+  bibtype  = "Manual",
+  title    = "LAMBclassifier: Luminal-Apocrine-Metaplastic-Basal Breast Cancer Classifier",
+  author   = person("Debjeet", "Ray"),
+  year     = "2026",
+  note     = "R package version 1.0.0, classifier specification 2.0.0",
+  url      = "https://github.com/debjeetrayx/LAMBclassifier",
+  textVersion = paste(
+    "Ray, D. (2026). LAMBclassifier: Luminal-Apocrine-Metaplastic-Basal Breast",
+    "Cancer Classifier. R package version 1.0.0 (classifier specification 2.0.0).",
+    "https://github.com/debjeetrayx/LAMBclassifier"
+  )
+)
+
+bibentry(
+  bibtype  = "Manual",
+  header   = "LAMBclassifier builds on the concept of LABClassifier and adapts code from it:",
+  title    = "LABClassifier: Luminal-Apocrine-Basal Classifier of Breast Cancer Transcriptomic Data",
+  author   = person("Richard", "Iggo", comment = c(ORCID = "0000-0002-8822-9111")),
+  note     = "R package",
+  url      = "https://github.com/ElodieDarbo/LABClassifier",
+  textVersion = paste(
+    "Iggo, R. LABClassifier: Luminal-Apocrine-Basal Classifier of Breast Cancer",
+    "Transcriptomic Data. R package. https://github.com/ElodieDarbo/LABClassifier"
+  )
+)

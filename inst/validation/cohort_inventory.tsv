@@ -1,0 +1,7 @@
+Cohort	Expression_Profiles	Metadata_Rows	Primary_Profiles	Technical_Replicate_Profiles	Metadata_Linked_Primary	Preprocessing
+GSE20194	278	278	278	0	278	supplied log-scale matrix
+GSE20271	178	178	178	0	178	log2(x+1) from linear supplied matrix
+GSE25066	508	508	508	0	508	supplied log-scale matrix
+GSE41998	279	279	279	0	279	supplied log-scale matrix
+GSE58812	107	107	107	0	107	log2(x+1) from linear supplied matrix
+GSE96058	3409	3069	3273	136	2969	supplied log-scale matrix

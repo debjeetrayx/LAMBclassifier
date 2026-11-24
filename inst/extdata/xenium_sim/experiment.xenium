@@ -1,0 +1,7 @@
+{
+    "note": "SIMULATED example for LAMBclassifier. Not a real Xenium run; no tissue was measured. See data-raw/xenium_sim.R.",
+    "run_name": "LAMB simulated example",
+    "panel_name": "simulated LAMB example panel",
+    "panel_num_targets_predesigned": 392,
+    "pixel_size": 0.2125
+}

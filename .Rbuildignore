@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.git$
+^\.gitignore$
+^\.github$
+^README\.Rmd$
+^\.DS_Store$
+^.*\.tar\.gz$
+^CITATION\.cff$
+^\.github/.*$
+^dev$
+^data-raw$
+^Dockerfile$
+^LICENSE\.md$
+^NOTICE$

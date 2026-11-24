@@ -1,0 +1,26 @@
+Analysis	Quantity	Group	N	Value	Note
+technical repeat	abs change in margin	quantile 0.5	136	0.006	136 tumour pairs
+technical repeat	abs change in LHS minus Apocrine	quantile 0.5	136	0.0062	136 tumour pairs
+technical repeat	abs change in margin	quantile 0.9	136	0.0173	136 tumour pairs
+technical repeat	abs change in LHS minus Apocrine	quantile 0.9	136	0.0215	136 tumour pairs
+technical repeat	abs change in margin	quantile 0.95	136	0.0345	136 tumour pairs
+technical repeat	abs change in LHS minus Apocrine	quantile 0.95	136	0.0341	136 tumour pairs
+technical repeat	abs change in margin	quantile 0.99	136	0.1599	136 tumour pairs
+technical repeat	abs change in LHS minus Apocrine	quantile 0.99	136	0.1142	136 tumour pairs
+gene loss	share same class	lowest class-signature coverage <0.30	5400	0.415	600 tumours x 21 gene-loss runs
+gene loss	share different class	lowest class-signature coverage <0.30	5400	0.0294	600 tumours x 21 gene-loss runs
+gene loss	share refused (NC)	lowest class-signature coverage <0.30	5400	0.5556	600 tumours x 21 gene-loss runs
+gene loss	share same class	lowest class-signature coverage 0.30-0.49	1200	0.9617	600 tumours x 21 gene-loss runs
+gene loss	share different class	lowest class-signature coverage 0.30-0.49	1200	0.0383	600 tumours x 21 gene-loss runs
+gene loss	share refused (NC)	lowest class-signature coverage 0.30-0.49	1200	0	600 tumours x 21 gene-loss runs
+gene loss	share same class	lowest class-signature coverage 0.50-0.59	1200	0.9675	600 tumours x 21 gene-loss runs
+gene loss	share different class	lowest class-signature coverage 0.50-0.59	1200	0.0325	600 tumours x 21 gene-loss runs
+gene loss	share refused (NC)	lowest class-signature coverage 0.50-0.59	1200	0	600 tumours x 21 gene-loss runs
+gene loss	share same class	lowest class-signature coverage 0.60-0.69	1800	0.9733	600 tumours x 21 gene-loss runs
+gene loss	share different class	lowest class-signature coverage 0.60-0.69	1800	0.0267	600 tumours x 21 gene-loss runs
+gene loss	share refused (NC)	lowest class-signature coverage 0.60-0.69	1800	0	600 tumours x 21 gene-loss runs
+gene loss	share same class	lowest class-signature coverage >=0.70	3000	0.987	600 tumours x 21 gene-loss runs
+gene loss	share different class	lowest class-signature coverage >=0.70	3000	0.013	600 tumours x 21 gene-loss runs
+gene loss	share refused (NC)	lowest class-signature coverage >=0.70	3000	0	600 tumours x 21 gene-loss runs
+gene loss	share same class (scored calls)	not flagged	4800	0.9819	600 tumours x 21 gene-loss runs
+gene loss	share same class (scored calls)	low_coverage flagged	4800	0.9492	600 tumours x 21 gene-loss runs

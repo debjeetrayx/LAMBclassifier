@@ -1,0 +1,155 @@
+---
+title: "How LAMB reads your data: every rule"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{How LAMB reads your data: every rule}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+`lamb_run()` accepts files as people actually save them. To do that it has to
+make decisions about the file: which column holds the gene names, whether the
+table is turned round, whether the numbers are counts or already on a log
+scale. This page lists every one of those decisions.
+
+Three principles apply throughout:
+
+1. **Standard libraries where a standard exists.** Excel is read with `readxl`,
+   HDF5 (`.h5`, `.h5ad`) with `rhdf5` or `hdf5r`, parquet with `arrow`, sparse
+   matrices with `Matrix`, PAM50 with `genefu`, scores with `singscore`.
+2. **Where no standard exists, the rule is written here, and most rules say so
+   in the run log (`technical/run_log.txt`) when they fire.**
+3. **When a file is ambiguous, LAMB stops and says why** rather than guessing.
+   Where a guess could be wrong and cannot be checked from the data, an
+   argument lets you state the answer instead.
+
+## Why scaling rarely changes a call
+
+LAMB scores each sample by ranking its genes against each other (singscore).
+Any transformation that keeps the order of genes inside a sample, such as
+taking logs or z-scoring a sample, leaves every call unchanged. Only three
+things can change calls:
+
+- **Normalising counts by gene length** (counts to TPM), which reorders genes.
+- **Centring each gene across samples**, which reorders genes inside a sample.
+- **Values becoming missing.**
+
+The rules below are built around those three.
+
+## Bulk tables
+
+| Situation | Rule | Run log says |
+|---|---|---|
+| Separator | Chosen from the first lines: tab, `;`, `,` or whitespace. | "Read … with ';' as separator" (when not tab or comma) |
+| Decimal comma | Assumed when the separator is not a comma and numbers use `,` as the decimal mark. | "… and decimal comma" |
+| Thousands separators | `1,234.5`, `1.234,5`, `1 234` and `1'234` are read as one number. | – |
+| Byte-order mark, leading `#` comment lines, blank lines | Skipped. | – |
+| Header one field short (R `write.table`), blank top-left cell | Accepted: the first column holds row names. | – |
+| No header row | Only for two-column files (one sample, named after the file) and HTSeq / STAR outputs. Otherwise LAMB stops: sample names would be unknown. | "No header row: one sample, named after the file" |
+| Which column holds gene names | The text column where the largest share of values are known HGNC symbols (at least 25%, preferred at 50% or more), else Ensembl gene IDs (at least 25%). Symbols win a tie. | "Gene names taken from column '…'" |
+| Most gene names unrecognised | Fewer than half the rows are human gene symbols or Ensembl IDs that map, and fewer than 1,000 reference-universe genes are present. LAMB stops and shows examples. | the stop message |
+| No such column | If the column *headers* look like genes, the table is turned round (below). Otherwise LAMB stops: probe IDs or other identifiers must be converted to symbols first. | the stop message |
+| Turned-round table (samples in rows) | Transposed when the column headers, not a column of values, look like genes (same 25% rule). | "the table was turned round (transposed)" |
+| Gene names not in upper case (`Gata3`) | LAMB stops: these are mouse-style names, and LAMB is built for human tumours. Human names in lower case must be converted to upper case first. | the stop message |
+| Other text columns (descriptions, a second ID column) | Dropped. | named in the log |
+| Numeric annotation columns | Dropped when named Entrez ID, length, effective length, chromosome, start, end, strand, GC content or width (any common spelling). | "Ignored annotation column(s) …: GeneLength" |
+| Text in a numeric column (`#N/A`, `-`, `null`, `NaN`) | Read as missing, when at least 90% of the column is numbers. | "… cell(s) held text where a number was expected" |
+| Summary rows (`Total`, `Sum`, `__no_feature`, STAR's `N_unmapped` …) | Dropped. | "Dropped summary row(s) …" |
+| Gene names that look like dates (`1-Mar`, `9-Sep`) | Kept, with a warning: Excel converted them, and they will not match. | "gene name(s) look like dates" |
+| Repeated sample names | A suffix is added (`S1`, `S1_1`). | "Some sample names were repeated" |
+| Sample column with no name | Named after its position. | named in the log |
+| GEO series matrix as downloaded | LAMB stops: it holds probe IDs and description lines. Map probes to symbols with the platform (GPL) annotation first. | the stop message |
+| Fewer than 1,000 genes | Run, with a warning: probably not a whole-transcriptome file. | "Warning: only … genes" |
+| A single-cell count matrix saved as a text table (500 or more columns, over 70% zeros, whole numbers) | LAMB stops: it scores groups of cells, not single cells. Give a 10x folder, an `.h5ad` or an `.rds` object, with clusters. | the stop message |
+| All values missing, all zero, or all negative | LAMB stops. | the stop message |
+
+## Quantifier files and folders
+
+Recognised by their column headers, never by column position:
+
+| File | Column used | Units |
+|---|---|---|
+| Salmon `quant.sf` | `TPM` | TPM |
+| kallisto `abundance.tsv` | `tpm` | TPM |
+| RSEM `genes.results` / `isoforms.results` | `TPM` (isoforms summed by `gene_id`) | TPM |
+| featureCounts | the count columns (Chr, Start, End, Strand, Length ignored) | counts |
+| STAR `ReadsPerGene.out.tab` | the strand column with the most counts | counts |
+| HTSeq-count | the count column (`__` rows dropped) | counts |
+
+Per-transcript files are summed to genes only when the transcript names carry
+the gene (GENCODE `ENST…|ENSG…|…|SYMBOL|` format). Otherwise LAMB stops and
+asks for a gene-level file or a tx2gene table: guessing the gene of a
+transcript ID is not safe.
+
+A **folder** of per-patient files is combined on the genes every file shares.
+Mixed formats or mixed units in one folder are refused. When fewer than half of
+the genes are shared, the log warns that the files may use different
+annotations.
+
+## What the numbers are
+
+| Values | Detected when | What is done |
+|---|---|---|
+| Raw counts | all whole numbers, none negative, largest above 100, and not summing to about one million per sample; or a counts format (featureCounts, STAR, HTSeq) | counts to TPM with the bundled gene lengths, then log2(TPM + 1) |
+| Rounded TPM | all whole numbers, and every sample sums to between 500,000 and 1,010,000 with sample totals within 2% of each other | log2(x + 1) |
+| TPM / FPKM | a TPM format; or largest value above 100, none negative, not all whole numbers | log2(x + 1) |
+| Already log | largest value 100 or less; or any negative value | used as they are |
+| **Centred per gene** | 3 or more samples, some values negative, and over 80% of genes have a mean or a median of 0 across samples |
+
+**Whole numbers that are not counts** (rounded intensities, or rounded TPM
+for a subset of genes that no longer sums to one million) look like counts and
+are read as counts. When you know what the numbers are, say
+so:
+
+```r
+lamb_run("table.csv", values = "tpm")   # or "counts", "log2"
+```
+
+## Duplicates
+
+| Duplicate | Rule |
+|---|---|
+| Gene names, counts | Summed. |
+| Gene names, other values | The row with the highest mean is kept. |
+| Gene symbols in single-cell / spatial data | Summed (they are counts). |
+| Sample names | A suffix is added. |
+| `LAMBclassifier()` called directly on a matrix | The first occurrence is scored, with a warning. |
+
+## Missing values
+
+Missing values are never replaced by zero or by an average. A missing value is
+treated exactly like a gene the platform did not measure, but for that sample
+only:
+
+- **A sample without missing values** is scored exactly as it always was.
+- **A sample with missing values** is ranked and scored on its own measured
+  genes. Each signature still needs at least 3 of its genes; below that it
+  cannot be scored, the decision step that needs it cannot be evaluated, and
+  the sample is **not classifiable**.
+- **Fewer than 60% of a signature's genes** (after that sample's gaps) flags
+  the call as resting on few genes, as on a targeted panel.
+- **A gap outside the signatures** only removes that gene from the ranking,
+  so scores move very slightly (by about one rank step).
+- **A whole sample missing** is not classifiable; the others are unaffected.
+
+The note in `LAMB_calls.csv` says how many signature values were missing and
+whether the sample was scored on its measured genes or could not be classified.
+Zeros are not missing values: a 0 is scored as a silent gene. Store "not
+measured" as empty or `NA`.
+
+## Single-cell and spatial data
+
+| Situation | Rule |
+|---|---|
+| Platform | Recognised from the files present (for example `experiment.xenium`, `spatial/tissue_positions.csv`, `*_exprMat_file.csv`, `cell_by_gene.csv`), never from folder names. |
+| Matrix Market files under other names | A folder holding exactly one `.mtx`, one `*genes.tsv` or `*features.tsv`, and one `*barcodes.tsv` (as GEO atlases publish them) is read like a 10x folder. A one-column gene file is taken as symbols. |
+| Counts | Raw counts are required. In `.h5ad`, the first whole-number matrix among `layers/counts`, `raw/X`, `X` is used; if none is whole numbers, LAMB stops (log-normalised values cannot be summed into pseudobulk). |
+| Groups of cells | The instrument's or object's clusters: 10x / Xenium / Visium graph-based clusters, Seurat active identities, SingleCellExperiment `colLabels()`, an `.h5ad` obs column named `leiden`, `louvain`, `cluster(s)` or `seurat_clusters`. Otherwise name any cell annotation column, `clusters = "cell_type"` (an `.h5ad` obs column, Seurat `meta.data`, SingleCellExperiment `colData`, or a `metadata.csv` next to a matrix whose first column is the cell barcode); columns with 2 to 500 distinct values, and at most one per ten cells, are offered, and the message lists them. Or give a file, `clusters = "my_clusters.csv"` (cell id, cluster). CosMx and MERSCOPE have no clusters of their own. |
+| Pseudobulk | Counts summed per cluster, then log2(CPM + 1). |
+| Small clusters | Under 50 cells (`min_cells`): listed, not classified. |
+| Cell-type gate | In each cluster's pseudobulk, genes are ranked and each module (epithelial, immune, vascular, adipocyte, fibroblast) is scored as the mean percentile rank of its 3 highest-ranked genes; a module needs 3 measured genes. A cluster is classified unless another module ranks above the epithelial one; such clusters read "Not epithelial", named by what dominates, and their scores stay in `technical/`. With fewer than 3 epithelial module genes on the panel, every cluster is classified. `tumour_clusters =` classifies named clusters whatever their markers. |
+| Epithelial_share | The share of cells detecting at least one of EPCAM, CDH1, KRT5/7/8/14/17/18/19, CLDN4/7, ELF3, GRHL2, ESRP1, ERBB3, SPINT2 (those on the panel). Reported in `LAMB_calls.csv`, not used to decide. |
+| Slide-level class | The class holding the most classified epithelial cells when it reaches 50%; otherwise "mixed", naming every class at 10% or more. |
+| Visium spots | A spot holds several cells, often of different types; a Visium class describes a cluster of spots. |
+
+The 50-cell and 50% cut-offs are stated in every run log.
