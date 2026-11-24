@@ -24,8 +24,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # Suggests (rhdf5, hdf5r, SeuratObject, SingleCellExperiment, ...) are installed by
-      # setup-r-dependencies; their tests fail rather than skip if one is missing.
+      # Suggests are installed by setup-r-dependencies; reader tests fail rather than skip if one is missing.
       LAMB_REQUIRE_SUGGESTS: 'true'
 
     steps:
@@ -42,9 +41,6 @@ jobs:
             any::rcmdcheck
             bioc::singscore
             bioc::genefu
-            bioc::rhdf5
-            bioc::SingleCellExperiment
-            any::SeuratObject
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
